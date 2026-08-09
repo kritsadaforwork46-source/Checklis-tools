@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ทะเบียนยืม-คืนของในรถ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --paper:#F1EEE5;
+    --paper-raised:#FAF8F2;
+    --ink:#221F1A;
+    --ink-soft:#6B655A;
+    --rule:#D8D2C2;
+    --amber:#E2A03B;
+    --amber-bg:#FBEFD9;
+    --amber-ink:#8A5A12;
+    --teal:#3F7D69;
+    --teal-bg:#E4EFE9;
+    --teal-ink:#2A5A49;
+    --rust:#B5482E;
+    --radius:3px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:640px; margin:0 auto; padding:28px 20px 64px; }
+  header{ margin-bottom:22px; }
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px; letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--ink-soft); margin-bottom:6px;
+  }
+  h1{
+    font-family:'Oswald',sans-serif; font-weight:700; font-size:28px;
+    letter-spacing:0.01em; margin:0 0 4px; text-transform:uppercase;
+  }
+  .subhead{ font-size:13.5px; color:var(--ink-soft); }
+  header .rule{
+    height:3px;
+    background:repeating-linear-gradient(90deg,var(--ink) 0,var(--ink) 10px,transparent 10px,transparent 16px);
+    margin-top:16px; opacity:0.85;
+  }
+  .account-bar{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-top:14px; font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-soft);
+  }
+  .account-bar button{
+    font-family:'JetBrains Mono',monospace; font-size:11px; background:none;
+    border:1px solid var(--rule); border-radius:100px; padding:4px 11px;
+    color:var(--ink-soft); cursor:pointer;
+  }
+
+  .login-card{
+    background:var(--paper-raised); border:1px solid var(--rule); border-radius:var(--radius);
+    padding:22px 20px; margin-top:40px; max-width:340px; margin-left:auto; margin-right:auto;
+  }
+  .login-card h2{
+    font-family:'Oswald',sans-serif; text-transform:uppercase; font-size:18px; margin:0 0 4px;
+  }
+  .login-card .sub{ font-size:12.5px; color:var(--ink-soft); margin-bottom:16px; }
+  .login-card label{
+    display:block; font-family:'JetBrains Mono',monospace; font-size:10.5px;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:4px;
+  }
+  .login-card input{
+    width:100%; font-size:14.5px; padding:9px 10px; border:1px solid var(--rule);
+    border-radius:var(--radius); background:#fff; color:var(--ink); margin-bottom:12px;
+  }
+  .login-card input:focus{ outline:none; border-color:var(--ink); }
+  .login-card .primary-btn{
+    width:100%; background:var(--ink); color:var(--paper-raised); border:none;
+    border-radius:var(--radius); font-family:'Oswald',sans-serif; font-size:14px;
+    font-weight:600; letter-spacing:0.03em; text-transform:uppercase; padding:11px; cursor:pointer;
+  }
+  .login-card .primary-btn[disabled]{ opacity:0.5; cursor:not-allowed; }
+  .login-error{ font-size:12px; color:var(--rust); margin:-6px 0 12px; display:none; }
+
+  .app-section{ display:none; }
+
+  .ticket-form{
+    background:var(--paper-raised); border:1px solid var(--rule); border-radius:var(--radius);
+    padding:18px 18px 16px; margin-top:22px; position:relative;
+  }
+  .ticket-form::before{
+    content:"บัตรยืม"; position:absolute; top:-10px; left:16px; background:var(--amber);
+    color:#2B1B02; font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:600;
+    letter-spacing:0.08em; padding:3px 9px; border-radius:2px;
+  }
+  .row{display:flex; gap:10px; margin-bottom:10px;}
+  .row:last-of-type{margin-bottom:0;}
+  label{
+    display:block; font-family:'JetBrains Mono',monospace; font-size:10.5px;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--ink-soft); margin-bottom:4px;
+  }
+  .field{flex:1; min-width:0;}
+  input, select{
+    width:100%; font-family:'Inter',sans-serif; font-size:14.5px; padding:9px 10px;
+    border:1px solid var(--rule); border-radius:var(--radius); background:#fff; color:var(--ink);
+  }
+  input:focus, select:focus{ outline:none; border-color:var(--ink); }
+  input.err{border-color:var(--rust); box-shadow:0 0 0 1px var(--rust);}
+
+  .save-btn{
+    width:100%; margin-top:14px; background:var(--ink); color:var(--paper-raised); border:none;
+    border-radius:var(--radius); font-family:'Oswald',sans-serif; font-size:14.5px; font-weight:600;
+    letter-spacing:0.03em; text-transform:uppercase; padding:12px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:8px; transition:opacity .15s;
+  }
+  .save-btn:hover{opacity:0.88;}
+  .save-btn:active{opacity:0.75;}
+
+  .perf{ display:flex; align-items:center; gap:10px; margin:28px 0 14px; }
+  .perf .line{ flex:1; height:0; border-top:1px dashed var(--rule); }
+  .perf .label{
+    font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:0.08em;
+    color:var(--ink-soft); white-space:nowrap;
+  }
+
+  .toolbar{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .filters{ display:flex; gap:6px; }
+  .filters button{
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; letter-spacing:0.02em;
+    padding:6px 12px; border-radius:100px; border:1px solid var(--rule);
+    background:transparent; color:var(--ink-soft); cursor:pointer;
+  }
+  .filters button.active{ background:var(--ink); border-color:var(--ink); color:var(--paper-raised); }
+  .export-btn{
+    display:flex; align-items:center; gap:6px;
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; font-weight:600;
+    padding:6px 12px; border-radius:100px; border:1px solid var(--teal-ink);
+    background:var(--teal-bg); color:var(--teal-ink); cursor:pointer;
+  }
+
+  .ticket{
+    display:flex; background:var(--paper-raised); border:1px solid var(--rule);
+    border-radius:var(--radius); margin-bottom:8px; overflow:hidden;
+  }
+  .ticket .tab{ width:6px; flex-shrink:0; background:var(--amber); }
+  .ticket.returned .tab{background:var(--teal);}
+  .ticket-body{ flex:1; min-width:0; padding:11px 12px; display:flex; align-items:center; gap:10px; }
+  .ticket-main{flex:1; min-width:0;}
+  .t-item{
+    font-size:14.5px; font-weight:600; color:var(--ink);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .t-meta{
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-soft);
+    margin-top:3px; display:flex; flex-wrap:wrap; gap:6px 10px;
+  }
+  .t-meta .line-badge{ background:var(--rule); color:var(--ink); padding:1px 6px; border-radius:2px; }
+  .t-meta .returned-time{color:var(--teal-ink);}
+
+  .status-btn{
+    flex-shrink:0; font-family:'JetBrains Mono',monospace; font-size:11.5px; font-weight:600;
+    padding:7px 11px; border-radius:100px; border:1px solid var(--amber-ink);
+    background:var(--amber-bg); color:var(--amber-ink); cursor:pointer; white-space:nowrap;
+  }
+  .ticket.returned .status-btn{ border-color:var(--teal-ink); background:var(--teal-bg); color:var(--teal-ink); }
+
+  .del-btn{
+    flex-shrink:0; width:30px; height:30px; display:flex; align-items:center; justify-content:center;
+    background:none; border:none; cursor:pointer; color:var(--ink-soft); border-radius:var(--radius);
+  }
+  .del-btn:hover{color:var(--rust); background:rgba(181,72,46,0.08);}
+
+  .empty{ text-align:center; padding:36px 0; color:var(--ink-soft); font-size:13.5px; }
+  .empty .icon{font-size:22px; margin-bottom:6px;}
+
+  footer{
+    margin-top:26px; text-align:center; font-family:'JetBrains Mono',monospace;
+    font-size:10.5px; color:var(--ink-soft); letter-spacing:0.04em;
+  }
+
+  @media (max-width:420px){
+    .row{flex-direction:column; gap:8px;}
+    h1{font-size:23px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">DELTA ELECTRONICS · CDBU1</div>
+    <h1>ทะเบียนยืม-คืนของในรถ</h1>
+    <div class="subhead">บันทึกใครยืมอะไร ไลน์ไหน กี่โมง — กดคืนเมื่อได้ของกลับ</div>
+    <div class="rule"></div>
+    <div class="account-bar" id="account-bar" style="display:none;">
+      <span>เข้าสู่ระบบแล้ว</span>
+      <button id="logout-btn">ออกจากระบบ</button>
+    </div>
+  </header>
+
+  <!-- LOGIN -->
+  <div class="login-card" id="login-card">
+    <h2>เข้าสู่ระบบ</h2>
+    <div class="sub">ใช้ user name และรหัสผ่านของทีมเพื่อดูข้อมูลร่วมกัน</div>
+    <div class="login-error" id="login-error"></div>
+    <label for="l-user">User name</label>
+    <input id="l-user" type="text" placeholder="user name" autocomplete="username">
+    <label for="l-pass">รหัสผ่าน</label>
+    <input id="l-pass" type="password" placeholder="••••••••" autocomplete="current-password">
+    <button class="primary-btn" id="login-btn">เข้าสู่ระบบ</button>
+  </div>
+
+  <!-- APP -->
+  <div class="app-section" id="app-section">
+    <div class="ticket-form">
+      <div class="row">
+        <div class="field">
+          <label for="f-id">รหัสพนักงาน</label>
+          <input id="f-id" type="text" placeholder="เช่น 12345">
+        </div>
+        <div class="field" style="flex:1.4;">
+          <label for="f-name">ชื่อผู้ยืม</label>
+          <input id="f-name" type="text" placeholder="ชื่อ-นามสกุล">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="f-line">ไลน์</label>
+          <select id="f-line">
+            <option value="">เลือกไลน์</option>
+            <option value="CD01-1">CD01-1</option>
+            <option value="CD01-2">CD01-2</option>
+            <option value="CD01-3">CD01-3</option>
+            <option value="CD01-4">CD01-4</option>
+            <option value="CD01-5">CD01-5</option>
+            <option value="CD01-6">CD01-6</option>
+            <option value="CD01-7">CD01-7</option>
+            <option value="DC01-1">DC01-1</option>
+            <option value="DC01-2">DC01-2</option>
+            <option value="DC01-3">DC01-3</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="f-item">ของที่ยืม</label>
+          <input id="f-item" type="text" placeholder="เช่น สายชาร์จ">
+        </div>
+      </div>
+      <button class="save-btn" id="f-save">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        บันทึกยืม
+      </button>
+    </div>
+
+    <div class="perf">
+      <div class="line"></div>
+      <div class="label" id="perf-label">รายการทั้งหมด</div>
+      <div class="line"></div>
+    </div>
+
+    <div class="toolbar">
+      <div class="filters">
+        <button class="active" data-filter="all">ทั้งหมด</button>
+        <button data-filter="out">ยังไม่คืน</button>
+        <button data-filter="returned">คืนแล้ว</button>
+      </div>
+      <button class="export-btn" id="export-btn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Excel
+      </button>
+    </div>
+
+    <div id="list"></div>
+    <div class="empty" id="empty-state" style="display:none;">
+      <div class="icon">🗒️</div>
+      ยังไม่มีรายการ
+    </div>
+  </div>
+
+  <footer>ข้อมูลซิงค์ผ่าน Firebase · แชร์กับทุกคนที่ล็อกอินด้วยบัญชีทีม</footer>
+</div>
+
+<script>
+/* =========================================================
+   ตั้งค่า Firebase ตรงนี้ — ใช้ config ชุดเดียวกับแอป รับ-เบิก
+   ========================================================= */
+var firebaseConfig = {
+  apiKey: "AIzaSyAdW1F0JdNGHQPsKduPdkLs6yRS8h7LCs8",
+  authDomain: "checklist-tool-ep2.firebaseapp.com",
+  databaseURL: "https://checklist-tool-ep2-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "checklist-tool-ep2",
+  storageBucket: "checklist-tool-ep2.firebasestorage.app",
+  messagingSenderId: "1021695876153",
+  appId: "1:1021695876153:web:09d4583974b1fe626ac1e8"
+};
+var DB_PATH = "borrowLog/entries";
+
+/* user name / รหัสผ่านของทีม แก้ได้ตรงนี้เลย ไม่ต้องตั้งค่าใน Firebase */
+var SHARED_USERNAME = "wholovehotpotman";
+var SHARED_PASSWORD = "sathorn";
+
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+var LOGIN_KEY = 'borrow-tracker-logged-in';
+
+(function(){
+  var loginCard = document.getElementById('login-card');
+  var appSection = document.getElementById('app-section');
+  var accountBar = document.getElementById('account-bar');
+  var logoutBtn = document.getElementById('logout-btn');
+
+  var lUser = document.getElementById('l-user');
+  var lPass = document.getElementById('l-pass');
+  var loginBtn = document.getElementById('login-btn');
+  var loginError = document.getElementById('login-error');
+
+  function showError(msg){
+    loginError.textContent = msg;
+    loginError.style.display = 'block';
+  }
+
+  function showApp(){
+    loginCard.style.display = 'none';
+    appSection.style.display = 'block';
+    accountBar.style.display = 'flex';
+    startSync();
+  }
+  function showLogin(){
+    loginCard.style.display = 'block';
+    appSection.style.display = 'none';
+    accountBar.style.display = 'none';
+    stopSync();
+  }
+
+  loginBtn.onclick = function(){
+    var user = lUser.value.trim();
+    var pass = lPass.value;
+    loginError.style.display = 'none';
+    if (!user || !pass) { showError('กรอก user name และรหัสผ่านให้ครบ'); return; }
+    if (user.toLowerCase() !== SHARED_USERNAME.toLowerCase() || pass !== SHARED_PASSWORD) {
+      showError('user name หรือรหัสผ่านไม่ถูกต้อง');
+      return;
+    }
+    try { localStorage.setItem(LOGIN_KEY, '1'); } catch(e) {}
+    showApp();
+  };
+
+  [lUser, lPass].forEach(function(el){
+    el.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter') loginBtn.click();
+    });
+  });
+
+  logoutBtn.onclick = function(){
+    try { localStorage.removeItem(LOGIN_KEY); } catch(e) {}
+    showLogin();
+  };
+
+
+  /* ---------------- app logic ---------------- */
+  var listEl = document.getElementById('list');
+  var emptyEl = document.getElementById('empty-state');
+  var perfLabel = document.getElementById('perf-label');
+  var idEl = document.getElementById('f-id');
+  var nameEl = document.getElementById('f-name');
+  var lineEl = document.getElementById('f-line');
+  var itemEl = document.getElementById('f-item');
+  var saveBtn = document.getElementById('f-save');
+  var exportBtn = document.getElementById('export-btn');
+  var filterBtns = document.querySelectorAll('.filters button');
+  var entries = [];
+  var currentFilter = 'all';
+  var dbRef = db.ref(DB_PATH);
+  var dbListener = null;
+
+  function fmtTime(ts){
+    var d = new Date(ts);
+    return d.toLocaleDateString('th-TH', { day:'numeric', month:'short' }) + ' ' + d.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
+  }
+  function fmtDateKey(ts){
+    var d = new Date(ts);
+    var dd = String(d.getDate()).padStart(2,'0');
+    var mm = String(d.getMonth()+1).padStart(2,'0');
+    var yyyy = d.getFullYear();
+    return dd + '-' + mm + '-' + yyyy;
+  }
+  function fmtClock(ts){
+    var d = new Date(ts);
+    return d.toLocaleTimeString('th-TH', { hour:'2-digit', minute:'2-digit' });
+  }
+
+  function startSync(){
+    dbListener = dbRef.on('value', function(snap){
+      var val = snap.val() || {};
+      entries = Object.keys(val).map(function(key){
+        var e = val[key];
+        e.id = key;
+        return e;
+      });
+      render();
+    });
+  }
+  function stopSync(){
+    if (dbListener) { dbRef.off('value', dbListener); dbListener = null; }
+    entries = [];
+  }
+
+  function counts(){
+    var out = entries.filter(function(e){ return !e.returned; }).length;
+    var ret = entries.filter(function(e){ return e.returned; }).length;
+    return { out: out, ret: ret };
+  }
+
+  function render(){
+    var c = counts();
+    perfLabel.textContent = 'ยังไม่คืน ' + c.out + ' · คืนแล้ว ' + c.ret;
+
+    var filtered = entries.filter(function(e){
+      if (currentFilter === 'out') return !e.returned;
+      if (currentFilter === 'returned') return e.returned;
+      return true;
+    });
+
+    listEl.innerHTML = '';
+    if (filtered.length === 0) {
+      emptyEl.style.display = 'block';
+      return;
+    }
+    emptyEl.style.display = 'none';
+
+    var sorted = filtered.slice().sort(function(a,b){ return b.ts - a.ts; });
+    sorted.forEach(function(e){
+      var ticket = document.createElement('div');
+      ticket.className = 'ticket' + (e.returned ? ' returned' : '');
+
+      var tab = document.createElement('div');
+      tab.className = 'tab';
+      ticket.appendChild(tab);
+
+      var body = document.createElement('div');
+      body.className = 'ticket-body';
+
+      var main = document.createElement('div');
+      main.className = 'ticket-main';
+
+      var itemLine = document.createElement('div');
+      itemLine.className = 't-item';
+      itemLine.textContent = e.item + ' — ' + e.name + (e.empId ? ' (' + e.empId + ')' : '');
+      main.appendChild(itemLine);
+
+      var meta = document.createElement('div');
+      meta.className = 't-meta';
+      if (e.line) {
+        var badge = document.createElement('span');
+        badge.className = 'line-badge';
+        badge.textContent = e.line;
+        meta.appendChild(badge);
+      }
+      var borrowedSpan = document.createElement('span');
+      borrowedSpan.textContent = 'ยืม ' + fmtTime(e.ts);
+      meta.appendChild(borrowedSpan);
+      if (e.returned && e.returnTs) {
+        var returnedSpan = document.createElement('span');
+        returnedSpan.className = 'returned-time';
+        returnedSpan.textContent = 'คืน ' + fmtTime(e.returnTs);
+        meta.appendChild(returnedSpan);
+      }
+      main.appendChild(meta);
+      body.appendChild(main);
+
+      var statusBtn = document.createElement('button');
+      statusBtn.className = 'status-btn';
+      statusBtn.textContent = e.returned ? 'คืนแล้ว' : 'กดคืนของ';
+      statusBtn.onclick = function(){
+        var returned = !e.returned;
+        dbRef.child(e.id).update({
+          returned: returned,
+          returnTs: returned ? Date.now() : null
+        });
+      };
+      body.appendChild(statusBtn);
+
+      var delBtn = document.createElement('button');
+      delBtn.className = 'del-btn';
+      delBtn.setAttribute('aria-label', 'ลบรายการ');
+      delBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+      delBtn.onclick = function(){
+        dbRef.child(e.id).remove();
+      };
+      body.appendChild(delBtn);
+
+      ticket.appendChild(body);
+      listEl.appendChild(ticket);
+    });
+  }
+
+  saveBtn.onclick = function(){
+    var empId = idEl.value.trim();
+    var name = nameEl.value.trim();
+    var line = lineEl.value;
+    var item = itemEl.value.trim();
+    nameEl.classList.toggle('err', !name);
+    itemEl.classList.toggle('err', !item);
+    if (!name || !item) return;
+
+    dbRef.push({
+      empId: empId, name: name, line: line, item: item,
+      ts: Date.now(), returned: false, returnTs: null
+    });
+
+    idEl.value = ''; nameEl.value = ''; lineEl.value = ''; itemEl.value = '';
+    nameEl.classList.remove('err'); itemEl.classList.remove('err');
+    idEl.focus();
+  };
+
+  [idEl, nameEl, itemEl].forEach(function(el){
+    el.addEventListener('keydown', function(ev){
+      if (ev.key === 'Enter') saveBtn.click();
+    });
+  });
+
+  filterBtns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      filterBtns.forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      currentFilter = btn.getAttribute('data-filter');
+      render();
+    });
+  });
+
+  exportBtn.onclick = function(){
+    if (typeof XLSX === 'undefined') { alert('โหลดไลบรารี Excel ไม่สำเร็จ ลองใหม่อีกครั้ง'); return; }
+    if (entries.length === 0) { alert('ยังไม่มีข้อมูลให้ส่งออก'); return; }
+
+    var byDate = {};
+    entries.forEach(function(e){
+      var key = fmtDateKey(e.ts);
+      if (!byDate[key]) byDate[key] = [];
+      byDate[key].push(e);
+    });
+
+    var dateKeys = Object.keys(byDate).sort(function(a,b){
+      var pa = a.split('-'), pb = b.split('-');
+      var da = new Date(pa[2], pa[1]-1, pa[0]);
+      var db_ = new Date(pb[2], pb[1]-1, pb[0]);
+      return da - db_;
+    });
+
+    var wb = XLSX.utils.book_new();
+    var header = ['เวลายืม','รหัสพนักงาน','ชื่อ','ไลน์','ของที่ยืม','เวลาคืน','สถานะ'];
+
+    dateKeys.forEach(function(key){
+      var rows = byDate[key].slice().sort(function(a,b){ return a.ts - b.ts; });
+      var aoa = [header];
+      rows.forEach(function(e){
+        aoa.push([
+          fmtClock(e.ts),
+          e.empId || '',
+          e.name || '',
+          e.line || '',
+          e.item || '',
+          e.returned && e.returnTs ? fmtClock(e.returnTs) : '',
+          e.returned ? 'คืนแล้ว' : 'ยังไม่คืน'
+        ]);
+      });
+      var ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = [{wch:9},{wch:11},{wch:20},{wch:9},{wch:20},{wch:9},{wch:10}];
+      XLSX.utils.book_append_sheet(wb, ws, key);
+    });
+
+    XLSX.writeFile(wb, 'borrow-log-' + fmtDateKey(Date.now()) + '.xlsx');
+  };
+
+  var alreadyLoggedIn = false;
+  try { alreadyLoggedIn = localStorage.getItem(LOGIN_KEY) === '1'; } catch(e) {}
+  if (alreadyLoggedIn) { showApp(); } else { showLogin(); }
+})();
+</script>
+</body>
+</html>
